@@ -6,15 +6,23 @@ import { Low } from "lowdb";
 import { JSONFile } from "lowdb/node";
 
 dotenv.config();
+// ✅ DATABASE SETUP
+const adapter = new JSONFile("db.json");
+const defaultData = { users: {} };
+const db = new Low(adapter, defaultData);
 
+// Read DB
+await db.read();
+
+// If file empty, write default
+await db.write();
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// ✅ DATABASE SETUP
-const adapter = new JSONFile("db.json");
-const db = new Low(adapter);
 
+await db.read();
+await db.write();
 await db.read();
 db.data ||= { users: {} };
 await db.write();
