@@ -15,7 +15,33 @@ const openai = new OpenAI({
 
 app.post("/chat", async (req, res) => {
   try {
-    const { messages } = req.body;
+    const { messages, userId } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ error: "User ID required" });
+    }
+
+    const FREE_LIMIT = 3;
+
+    const user = db.data.users[userId] || {
+      count: 0,
+      isPro: false
+    };
+
+    // If not Pro and limit exceeded
+    if (!user.isPro && user.count >= FREE_LIMIT) {
+      return res.status(403).json({
+        error: "Free limit reached. Upgrade to Chanakya Pro."
+      });
+    }
+
+    // Increase usage only if not Pro
+    if (!user.isPro) {
+      user.count += 1;
+    }
+
+    db.data.users[userId] = user;
+    await db.write();
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
@@ -23,13 +49,12 @@ app.post("/chat", async (req, res) => {
     });
 
     res.json({
-      reply: completion.choices[0].message.content
+      reply: completion.choices[0].message.content,
+      remaining: user.isPro ? "Unlimited" : FREE_LIMIT - user.count
     });
 
   } catch (error) {
-    res.status(500).json({
-      error: error.message
-    });
+    res.status(500).json({ error: error.message });
   }
 });
 
