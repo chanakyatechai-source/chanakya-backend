@@ -2,6 +2,8 @@ import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import OpenAI from "openai";
+import { Low } from "lowdb";
+import { JSONFile } from "lowdb/node";
 
 dotenv.config();
 
@@ -9,10 +11,20 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ✅ DATABASE SETUP
+const adapter = new JSONFile("db.json");
+const db = new Low(adapter);
+
+await db.read();
+db.data ||= { users: {} };
+await db.write();
+
+// ✅ OPENAI SETUP
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
+// ✅ ROUTE
 app.post("/chat", async (req, res) => {
   try {
     const { messages, userId } = req.body;
@@ -28,14 +40,12 @@ app.post("/chat", async (req, res) => {
       isPro: false
     };
 
-    // If not Pro and limit exceeded
     if (!user.isPro && user.count >= FREE_LIMIT) {
       return res.status(403).json({
         error: "Free limit reached. Upgrade to Chanakya Pro."
       });
     }
 
-    // Increase usage only if not Pro
     if (!user.isPro) {
       user.count += 1;
     }
